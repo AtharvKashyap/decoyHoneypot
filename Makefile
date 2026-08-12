@@ -1,5 +1,5 @@
 # AI Deception Grid — developer & operator entrypoints.
-.PHONY: help venv install test generate demo dash lab lab-down lab-config clean
+.PHONY: help venv install test generate demo dash lab lab-down lab-config attack clean
 
 PY ?= python3
 VENV := .venv
@@ -13,6 +13,7 @@ help:
 	@echo "  demo        offline end-to-end: generate -> personas -> attacker -> detect (no Docker)"
 	@echo "  dash        run the hub dashboard locally on :8000"
 	@echo "  lab         docker compose up the full deception lab"
+	@echo "  attack      build + run the live red-team attacker against the lab"
 	@echo "  lab-down    tear the lab down"
 	@echo "  lab-config  validate docker-compose.yml"
 	@echo "  clean       remove data/ and generated seed content"
@@ -44,6 +45,12 @@ lab-down:
 
 lab-config:
 	docker compose config >/dev/null && echo "docker-compose.yml OK"
+
+# Build the red-team toolbox and run a real kill-chain against the running lab.
+# Auto-detects the compose network so it works regardless of project name.
+attack:
+	docker build -t deception-attacker scripts/live_attack
+	docker run --rm --network $$(docker network ls --format '{{.Name}}' | grep deception | head -1) deception-attacker
 
 clean:
 	rm -rf data seed/generated
