@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="5">
+<title>AI Deception Grid - Hub</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #161c2c;
+    --border: #2a3348;
+    --text: #d8dee9;
+    --muted: #8b95a8;
+    --benign: #3fb950;
+    --alert: #f85149;
+    --critical: #ff4d4d;
+    --high: #ff9f43;
+    --medium: #f0c14b;
+    --info: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: 0.85rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .card .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card .value { font-size: 1.8rem; font-weight: 600; margin-top: 4px; }
+  .card.benign .value { color: var(--benign); }
+  .card.alert .value { color: var(--alert); }
+  .card.waste .value { color: var(--medium); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+  tr.benign-row td.cls { color: var(--benign); }
+  tr.alert-row td.cls { color: var(--alert); }
+  tr.unknown-row td.cls { color: var(--muted); }
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge.critical { background: rgba(255,77,77,0.15); color: var(--critical); }
+  .badge.high { background: rgba(255,159,67,0.15); color: var(--high); }
+  .badge.medium { background: rgba(240,193,75,0.15); color: var(--medium); }
+  .badge.info { background: rgba(88,166,255,0.15); color: var(--info); }
+  .badge.low { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .session { margin-bottom: 14px; }
+  .session .ip { font-weight: 600; color: var(--alert); }
+  .session ol { margin: 6px 0 0 18px; padding: 0; color: var(--muted); font-size: 0.82rem; }
+  .session li { margin-bottom: 2px; }
+  .empty { color: var(--muted); font-size: 0.85rem; font-style: italic; }
+  code { color: var(--info); }
+</style>
+</head>
+<body>
+  <h1>AI Deception Grid &mdash; Hub</h1>
+  <div class="sub">Auto-refreshing every 5s &middot; {{ stats.total_events }} total events</div>
+
+  <div class="grid">
+    <div class="card benign">
+      <div class="label">Benign</div>
+      <div class="value">{{ stats.benign_count }}</div>
+    </div>
+    <div class="card alert">
+      <div class="label">Alerts</div>
+      <div class="value">{{ stats.alert_count }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Unknown</div>
+      <div class="value">{{ stats.unknown_count }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Attacker Source IPs</div>
+      <div class="value">{{ stats.attacker_ip_count }}</div>
+    </div>
+    <div class="card waste">
+      <div class="label">Attacker Time Wasted</div>
+      <div class="value">{{ "%.0f"|format(stats.time_wasted_seconds) }}s</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Recent Events</h2>
+    {% if recent_events %}
+    <table>
+      <tr><th>Time</th><th>Source</th><th>Action</th><th>Src IP</th><th>Identity</th><th>Class</th><th>Severity</th></tr>
+      {% for ev in recent_events %}
+      <tr class="{{ ev.classification }}-row">
+        <td>{{ ev.ts }}</td>
+        <td>{{ ev.source }}</td>
+        <td>{{ ev.action }}</td>
+        <td><code>{{ ev.src_ip }}</code></td>
+        <td>{{ ev.identity or "-" }}</td>
+        <td class="cls">{{ ev.classification }}</td>
+        <td><span class="badge {{ ev.severity }}">{{ ev.severity }}</span></td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty">No events yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Alerts</h2>
+    {% if alert_events %}
+    <table>
+      <tr><th>Time</th><th>Source</th><th>Action</th><th>Src IP</th><th>Identity</th><th>Severity</th><th>Detail</th></tr>
+      {% for ev in alert_events %}
+      <tr class="alert-row">
+        <td>{{ ev.ts }}</td>
+        <td>{{ ev.source }}</td>
+        <td>{{ ev.action }}</td>
+        <td><code>{{ ev.src_ip }}</code></td>
+        <td>{{ ev.identity or "-" }}</td>
+        <td><span class="badge {{ ev.severity }}">{{ ev.severity }}</span></td>
+        <td>{{ ev.detail }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty">No alerts yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Attacker Sessions (cowrie)</h2>
+    {% if sessions %}
+      {% for ip, events in sessions.items() %}
+      <div class="session">
+        <div class="ip">{{ ip }}</div>
+        <ol>
+          {% for ev in events %}
+          <li>[{{ ev.ts }}] {{ ev.action }}{% if ev.detail %} &mdash; {{ ev.detail }}{% endif %}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty">No trap sessions recorded yet.</div>
+    {% endif %}
+  </div>
+</body>
+</html>
