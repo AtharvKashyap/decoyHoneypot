@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Runtime data / secrets
+.env
+*.db
+*.sqlite
+*.sqlite3
+data/
+seed/generated/
+config/company.yaml
+
+# OS
+.DS_Store

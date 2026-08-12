@@ -1,0 +1,76 @@
+# Example fake-company definition. The Decoy Generator overwrites config/company.yaml
+# with a richer, AI-generated version; this bundled example keeps the lab runnable
+# (and tests deterministic) with no API key.
+company:
+  name: "Meridian Logistics"
+  domain: "meridian-logistics.local"
+  subnet: "10.13.0.0/24"
+
+personas:
+  - username: "jchen"
+    full_name: "Jia Chen"
+    role: "Finance Analyst"
+    home_ip: "10.13.0.21"
+    work_hours: { start: "08:45", end: "17:15", tz: "UTC", days: [0, 1, 2, 3, 4] }
+    smb_share: "finance"
+    files_owned:
+      - "finance/Q3_forecast.xlsx"
+      - "finance/vendor_payments.xlsx"
+    activity_weights: { open_file: 5, edit_file: 3, share_file: 1, browse: 2, send_mail: 2, ssh: 0 }
+
+  - username: "rpatel"
+    full_name: "Rohan Patel"
+    role: "DevOps Engineer"
+    home_ip: "10.13.0.22"
+    work_hours: { start: "09:30", end: "18:00", tz: "UTC", days: [0, 1, 2, 3, 4] }
+    smb_share: "it"
+    files_owned:
+      - "it/server_inventory.csv"
+      - "it/passwords.xlsx"       # lure: a juicy-looking (canaried) target
+    activity_weights: { open_file: 3, edit_file: 2, share_file: 1, browse: 3, send_mail: 1, ssh: 4 }
+
+  - username: "slee"
+    full_name: "Sophie Lee"
+    role: "HR Manager"
+    home_ip: "10.13.0.23"
+    work_hours: { start: "09:00", end: "17:00", tz: "UTC", days: [0, 1, 2, 3, 4] }
+    smb_share: "hr"
+    files_owned:
+      - "hr/salaries_2026.xlsx"
+      - "hr/org_chart.pptx"
+    activity_weights: { open_file: 4, edit_file: 2, share_file: 2, browse: 3, send_mail: 3, ssh: 0 }
+
+hosts:
+  - name: "fileserver"
+    ip: "10.13.0.10"
+    services: ["smb"]
+    is_trap: false
+  - name: "intranet"
+    ip: "10.13.0.11"
+    services: ["http"]
+    is_trap: false
+  - name: "jumphost"
+    ip: "10.13.0.12"
+    services: ["ssh"]
+    is_trap: false
+  - name: "mail"
+    ip: "10.13.0.13"
+    services: ["smtp"]
+    is_trap: false
+  # --- pure traps: no persona ever touches these ---
+  - name: "cowrie-ssh"
+    ip: "10.13.0.30"
+    services: ["ssh", "telnet"]
+    is_trap: true
+  - name: "canary-multi"
+    ip: "10.13.0.31"
+    services: ["ftp", "http", "mysql", "smb"]
+    is_trap: true
+
+documents:
+  - { path: "finance/Q3_forecast.xlsx", owner: "jchen", doc_type: "spreadsheet", canary: false }
+  - { path: "finance/vendor_payments.xlsx", owner: "jchen", doc_type: "spreadsheet", canary: true }
+  - { path: "it/server_inventory.csv", owner: "rpatel", doc_type: "csv", canary: false }
+  - { path: "it/passwords.xlsx", owner: "rpatel", doc_type: "spreadsheet", canary: true }
+  - { path: "hr/salaries_2026.xlsx", owner: "slee", doc_type: "spreadsheet", canary: true }
+  - { path: "hr/org_chart.pptx", owner: "slee", doc_type: "presentation", canary: false }

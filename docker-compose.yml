@@ -1,0 +1,76 @@
+# AI Deception Grid — single-host lab.
+#
+# Containment model (IMPORTANT):
+#   * `deception` network is marked `internal: true` -> containers on it have NO
+#     route to the internet. Decoys and traps cannot phone home or pivot outward.
+#   * Only the `hub` also joins the `frontend` network, which exists solely to
+#     publish the dashboard to the operator's browser. Nothing else is exposed.
+#
+# Everything here is synthetic. No real credentials or data.
+
+networks:
+  deception:
+    internal: true        # no egress: decoys/traps are sealed off from the internet
+  frontend:               # operator-facing only; carries the dashboard
+
+volumes:
+  events: {}              # shared SQLite event store
+  seed: {}                # generated fake documents mounted into the fileserver
+
+services:
+  # ---- Central hub: ingest + detection + dashboard -------------------------
+  hub:
+    build: ./hub
+    environment:
+      EVENTS_DB: /data/events.db
+    volumes:
+      - events:/data
+      - ./config:/app/config:ro
+    networks: [deception, frontend]
+    ports:
+      - "8000:8000"       # dashboard (operator only)
+
+  # ---- Behavior engine: simulated employees --------------------------------
+  personas:
+    build: ./personas
+    environment:
+      HUB_URL: http://hub:8000
+      TIME_SCALE: ${TIME_SCALE:-288}
+    volumes:
+      - ./config:/app/config:ro
+    networks: [deception]
+    depends_on: [hub, fileserver, intranet, jumphost]
+
+  # ---- Real, usable decoy services (personas use them; attackers find them) -
+  fileserver:             # Samba share seeded with AI-generated (canaried) docs
+    build: ./traps/fileserver
+    volumes:
+      - seed:/share
+    networks: [deception]
+
+  intranet:               # fake internal web portal
+    build: ./traps/intranet
+    networks: [deception]
+
+  jumphost:               # plain SSH host personas legitimately log into
+    build: ./traps/jumphost
+    networks: [deception]
+
+  mail:                   # fake internal mail (MailHog)
+    image: mailhog/mailhog:latest
+    networks: [deception]
+
+  # ---- Pure traps: any interaction is an attacker --------------------------
+  cowrie:                 # SSH/Telnet honeypot
+    build: ./traps/cowrie
+    environment:
+      HUB_URL: http://hub:8000
+    networks: [deception]
+    depends_on: [hub]
+
+  opencanary:             # multi-service tripwire (ftp/http/mysql/smb)
+    build: ./traps/opencanary
+    environment:
+      HUB_URL: http://hub:8000
+    networks: [deception]
+    depends_on: [hub]
