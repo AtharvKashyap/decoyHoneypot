@@ -40,9 +40,23 @@ make install   # venv + deps
 make test      # pytest
 make demo      # offline end-to-end
 make dash      # dashboard on :8000
-make lab       # docker compose up
+make lab       # docker compose up the full lab
+make attack    # build + run the live red-team attacker against the lab
 make lab-config# validate compose file
 ```
+
+## Portability & CI
+
+- **Runs anywhere:** the Python app layer is OS-independent (Linux/macOS/Windows,
+  py3.11/3.12); the container lab uses only multi-arch images (native on amd64 and
+  arm64, no emulation). Don't reintroduce single-arch images (e.g. mailhog) —
+  Mailpit replaced it for this reason.
+- **CI** (`.github/workflows/ci.yml`): a cross-OS test+demo matrix, plus a Docker
+  job that boots the honeypot+hub, runs the live attacker, and asserts an alert
+  reaches the hub. Keep `python scripts/run_demo.py` and `pytest` green on all OSes.
+- **Trap forwarding:** honeypots run as unmodified upstream images; a sidecar
+  (`traps/forwarder/`) tails their logs and POSTs events to the hub. Cowrie's image
+  has no shell, so never add `RUN`/shell-entrypoint steps to it — use the sidecar.
 
 ## Conventions
 

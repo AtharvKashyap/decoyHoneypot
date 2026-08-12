@@ -27,7 +27,9 @@ os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
 
 DB = os.environ.setdefault("EVENTS_DB", "data/events.db")
-PY = str(ROOT / ".venv" / "bin" / "python")
+# Use the interpreter running this script (works on Linux/macOS/Windows and in
+# CI, with or without a .venv) rather than assuming a venv layout.
+PY = sys.executable
 
 
 def banner(step: str, msg: str) -> None:

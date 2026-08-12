@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---- Cross-platform app layer: runs on any OS, no Docker, no API key -------
+  tests:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run unit tests
+        run: pytest -q
+      - name: Offline end-to-end demo (generate -> personas -> attack -> detect)
+        run: python scripts/run_demo.py
+
+  # ---- Live lab integration: build containers, run a real attacker ----------
+  lab-integration:
+    name: live lab (Docker)
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: deception
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate full compose file
+        run: docker compose config >/dev/null && echo "docker-compose.yml OK"
+      - name: Seed decoy documents (offline generator)
+        run: |
+          pip install PyYAML anthropic
+          python -m generator.generate
+      - name: Bring up hub + Cowrie honeypot + forwarder
+        run: docker compose up -d --build hub cowrie cowrie-forwarder
+      - name: Wait for hub
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/stats >/dev/null; then echo "hub up"; break; fi
+            sleep 2
+          done
+      - name: Build the red-team attacker image
+        run: docker build -t deception-attacker scripts/live_attack
+      - name: Run the live attacker against the honeypots
+        run: docker run --rm --network deception_deception deception-attacker || true
+      - name: Assert the honeypot forwarded attacker activity to the hub
+        run: |
+          sleep 5
+          curl -s http://localhost:8000/api/stats -o stats.json
+          cat stats.json
+          python - <<'PY'
+          import json
+          s = json.load(open("stats.json"))
+          assert s["alert_count"] > 0, f"expected alerts from the honeypot, got {s}"
+          print(f"PASS: {s['alert_count']} live alert(s) reached the hub")
+          PY
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail=50
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

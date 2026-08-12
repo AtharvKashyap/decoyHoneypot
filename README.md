@@ -1,5 +1,7 @@
 # AI Deception Grid
 
+[![CI](https://github.com/OWNER/decoyHoneypot/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+
 An **AI-driven deception lab**: a network of believable decoys and honeypots that
 waste attackers' time, detect intrusions with near-zero false positives, and — the
 novel part — look *alive* thanks to AI-simulated employees who "work" 9–5, opening,
@@ -51,10 +53,30 @@ make dash         # view the dashboard at http://localhost:8000
 cp .env.example .env      # optionally add ANTHROPIC_API_KEY
 make generate             # build the fake org + seed documents
 make lab                  # docker compose up the whole deception grid
-# ... open http://localhost:8000, then run the attacker demo:
-python scripts/attacker_sim.py
+make attack               # run a REAL red-team kill-chain against the live lab
+# open http://localhost:8000 to watch it land, then:
 make lab-down
 ```
+
+`make attack` builds a small red-team toolbox image (nmap, ssh, smbclient) and
+runs it *on* the sealed deception network, executing a real kill-chain:
+port-scan → SMB discovery/exfil of canaried docs → OpenCanary tripwire probes →
+brute-force into the Cowrie SSH honeypot and run a recon session. The honeypots'
+forwarders relay every interaction to the hub, where it lands as alerts against
+the persona baseline. `personas` (auto-started by `make lab`) supplies the
+benign 9–5 traffic, so the dashboard shows the same benign-vs-alert split as the
+offline demo — but from live containers.
+
+## Runs anywhere
+
+- **App layer** (generate / personas / hub / detection / offline demo) is pure
+  Python — Linux, macOS, and Windows, Python 3.11/3.12. CI runs the suite on all
+  three OSes.
+- **Container lab** uses multi-arch images only (Cowrie, Mailpit, Samba, Alpine,
+  `python:slim`), so it runs natively on both `amd64` and `arm64` (Apple Silicon)
+  with no emulation.
+- CI (`.github/workflows/ci.yml`) additionally spins up the honeypot + hub in
+  Docker, runs the live attacker, and asserts the alert reaches the hub.
 
 ## Containment
 
