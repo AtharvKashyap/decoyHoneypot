@@ -35,8 +35,14 @@ Persona Engine ─► decoys (fileserver / intranet / jumphost / mail)  ◄─ A
 | `generator/`   | AI-generates the fake org + document contents (offline fallback)| Claude / templates  |
 | `personas/`    | Behavior engine: simulated employees on a schedule              | APScheduler         |
 | `hub/`         | Ingest + detection + dashboard                                  | FastAPI + SQLite    |
-| `traps/`       | Honeypots & decoy services                                      | Cowrie, OpenCanary, Samba, MailHog |
+| `traps/`       | Honeypots & decoy services (+ log forwarders → hub)             | Cowrie, OpenCanary, Samba, Mailpit |
+| `engagement/`  | AI tarpit: serves believable fake content to waste attacker time| Claude / templates  |
 | `core/`        | Shared event schema + config contract                          | stdlib + PyYAML     |
+
+Live detection covers all of it: the Cowrie SSH honeypot and OpenCanary tripwires
+forward every hit; the Samba fileserver audits file reads so **exfiltration and
+canary-token trips appear on the dashboard in real time**; and the AI tarpit logs
+each time it lures an intruder deeper.
 
 ## Quick start (no Docker, no API key needed)
 

