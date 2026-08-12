@@ -1,0 +1,16 @@
+# Keep image build contexts small and host-independent.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.git/
+.github/
+data/
+seed/generated/
+*.db
+*.sqlite*
+.env
+docs/
+tests/
+.DS_Store

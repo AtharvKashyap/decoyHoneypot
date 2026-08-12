@@ -15,6 +15,7 @@ networks:
 
 volumes:
   events: {}              # SQLite event store (hub-owned)
+  cowrie_logs: {}         # shared between cowrie and its forwarder sidecar
 
 services:
   # ---- Central hub: ingest + detection + dashboard -------------------------
@@ -59,17 +60,29 @@ services:
     build: ./traps/jumphost
     networks: [deception]
 
-  mail:                   # fake internal mail (MailHog)
-    image: mailhog/mailhog:latest
+  mail:                   # fake internal mail (Mailpit — multi-arch, runs on amd64+arm64)
+    image: axllent/mailpit:latest
     networks: [deception]
 
   # ---- Pure traps: any interaction is an attacker --------------------------
-  cowrie:                 # SSH/Telnet honeypot
-    build: ./traps/cowrie
+  cowrie:                 # SSH/Telnet honeypot (unmodified upstream image)
+    image: cowrie/cowrie:latest
+    volumes:
+      - cowrie_logs:/cowrie/cowrie-git/var/log/cowrie
+    networks: [deception]
+
+  cowrie-forwarder:       # sidecar: tails cowrie's JSON log -> hub events
+    build:
+      context: ./traps
+      dockerfile: forwarder/Dockerfile
+    command: ["python", "/app/cowrie_forward.py"]
     environment:
       HUB_URL: http://hub:8000
+      COWRIE_LOG: /logs/cowrie.json
+    volumes:
+      - cowrie_logs:/logs:ro
     networks: [deception]
-    depends_on: [hub]
+    depends_on: [hub, cowrie]
 
   opencanary:             # multi-service tripwire (ftp/http/mysql/smb)
     build: ./traps/opencanary

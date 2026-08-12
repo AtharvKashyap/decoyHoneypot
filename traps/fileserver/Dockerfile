@@ -10,7 +10,12 @@ FROM dperson/samba:latest
 # Anonymous/guest read access to a single "company" share rooted at /share.
 # -p disables the container's default password prompt banner; -w sets a
 # believable workgroup name for the fake org.
+# Share fields are name;path;browsable;readonly;guest — leaving the `users`
+# field empty keeps it public (a non-empty `users` becomes samba `valid users`
+# and would DENY guests). Read-only matches the read-only seed mount.
 ENTRYPOINT ["/usr/bin/samba.sh"]
 CMD ["-p", "-w", "MERIDIAN", \
-     "-s", "company;/share;yes;no;yes;everyone;none;none;Meridian Logistics file share", \
+     "-g", "map to guest = Bad User", \
+     "-g", "server min protocol = NT1", \
+     "-s", "company;/share;yes;yes;yes;;;;Meridian Logistics file share", \
      "-n"]
