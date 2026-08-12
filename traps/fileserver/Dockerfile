@@ -1,21 +1,24 @@
-# Samba fileserver: the real, usable decoy share. Personas legitimately read
-# and edit files here; attackers who pivot into the deception network can
-# discover and pull the same (AI-generated, canaried) documents.
+# Samba fileserver with file-access auditing.
 #
-# docker-compose.yml mounts the `seed` volume (populated by the Decoy
-# Generator) at /share, so the exact same directory tree personas use is what
-# an attacker sees over SMB.
-FROM dperson/samba:latest
+# The real, usable decoy share: personas' documents live here (AI-generated,
+# some canaried), and an attacker who pivots into the deception network can
+# discover and pull them over SMB. Samba's full_audit VFS module logs every
+# file OPEN to syslog; rsyslog writes those to a shared log file that the
+# fileserver-forwarder sidecar tails and turns into hub events — so live
+# exfiltration (and canary trips) show up on the dashboard in real time.
+#
+# Custom image (not dperson/samba) so we fully control the audit config, and
+# built on debian:trixie-slim which is multi-arch (amd64 + arm64, no emulation).
+FROM debian:trixie-slim
 
-# Anonymous/guest read access to a single "company" share rooted at /share.
-# -p disables the container's default password prompt banner; -w sets a
-# believable workgroup name for the fake org.
-# Share fields are name;path;browsable;readonly;guest — leaving the `users`
-# field empty keeps it public (a non-empty `users` becomes samba `valid users`
-# and would DENY guests). Read-only matches the read-only seed mount.
-ENTRYPOINT ["/usr/bin/samba.sh"]
-CMD ["-p", "-w", "MERIDIAN", \
-     "-g", "map to guest = Bad User", \
-     "-g", "server min protocol = NT1", \
-     "-s", "company;/share;yes;yes;yes;;;;Meridian Logistics file share", \
-     "-n"]
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends samba rsyslog \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY smb.conf /etc/samba/smb.conf
+COPY rsyslog-audit.conf /etc/rsyslog.d/30-samba-audit.conf
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 139 445
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -12,6 +12,7 @@ WORKDIR /app
 
 COPY forwarder.py /app/forwarder.py
 COPY cowrie/forward.py /app/cowrie_forward.py
+COPY fileserver/samba_forward.py /app/samba_forward.py
 
 # Default target is cowrie; docker-compose overrides `command` per sidecar.
 CMD ["python", "/app/cowrie_forward.py"]

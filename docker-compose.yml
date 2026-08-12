@@ -16,6 +16,7 @@ networks:
 volumes:
   events: {}              # SQLite event store (hub-owned)
   cowrie_logs: {}         # shared between cowrie and its forwarder sidecar
+  fileserver_logs: {}     # samba audit log, shared with the fileserver forwarder
 
 services:
   # ---- Central hub: ingest + detection + dashboard -------------------------
@@ -40,6 +41,10 @@ services:
     environment:
       HUB_URL: http://hub:8000
       TIME_SCALE: ${TIME_SCALE:-288}
+      # Emit benign events directly (with correct persona home IPs) rather than
+      # generating real SMB/HTTP traffic, so any REAL file open on the share is
+      # unambiguously the attacker (see traps/fileserver/samba_forward.py).
+      PERSONA_LIVE: "0"
     volumes:
       - ./config:/app/config:ro
     networks: [deception]
@@ -50,7 +55,23 @@ services:
     build: ./traps/fileserver
     volumes:
       - ./seed/generated:/share:ro   # run `make generate` first to populate
+      - fileserver_logs:/var/log/samba/audit
     networks: [deception]
+
+  fileserver-forwarder:   # sidecar: tails samba audit log -> hub (exfil + canary)
+    build:
+      context: ./traps
+      dockerfile: forwarder/Dockerfile
+    command: ["python", "/app/samba_forward.py"]
+    environment:
+      HUB_URL: http://hub:8000
+      AUDIT_LOG: /var/log/samba/audit/audit.log
+      CANARY_MANIFEST: /seed/canary_manifest.json
+    volumes:
+      - fileserver_logs:/var/log/samba/audit:ro
+      - ./seed/generated:/seed:ro
+    networks: [deception]
+    depends_on: [hub, fileserver]
 
   intranet:               # fake internal web portal
     build: ./traps/intranet
@@ -63,6 +84,16 @@ services:
   mail:                   # fake internal mail (Mailpit — multi-arch, runs on amd64+arm64)
     image: axllent/mailpit:latest
     networks: [deception]
+
+  tarpit:                 # AI adaptive engagement — serves believable fake content to burn attacker time
+    build:
+      context: .              # root context: imports the shared core/ package
+      dockerfile: engagement/Dockerfile
+    environment:
+      HUB_URL: http://hub:8000
+      TARPIT_DELAY_MS: "1500"   # deliberately slow responses (capped) to waste time
+    networks: [deception]
+    depends_on: [hub]
 
   # ---- Pure traps: any interaction is an attacker --------------------------
   cowrie:                 # SSH/Telnet honeypot (unmodified upstream image)
