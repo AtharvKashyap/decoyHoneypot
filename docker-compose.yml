@@ -14,13 +14,14 @@ networks:
   frontend:               # operator-facing only; carries the dashboard
 
 volumes:
-  events: {}              # shared SQLite event store
-  seed: {}                # generated fake documents mounted into the fileserver
+  events: {}              # SQLite event store (hub-owned)
 
 services:
   # ---- Central hub: ingest + detection + dashboard -------------------------
   hub:
-    build: ./hub
+    build:
+      context: .              # root context: hub imports the shared core/ package
+      dockerfile: hub/Dockerfile
     environment:
       EVENTS_DB: /data/events.db
     volumes:
@@ -32,7 +33,9 @@ services:
 
   # ---- Behavior engine: simulated employees --------------------------------
   personas:
-    build: ./personas
+    build:
+      context: .              # root context: engine imports the shared core/ package
+      dockerfile: personas/Dockerfile
     environment:
       HUB_URL: http://hub:8000
       TIME_SCALE: ${TIME_SCALE:-288}
@@ -45,7 +48,7 @@ services:
   fileserver:             # Samba share seeded with AI-generated (canaried) docs
     build: ./traps/fileserver
     volumes:
-      - seed:/share
+      - ./seed/generated:/share:ro   # run `make generate` first to populate
     networks: [deception]
 
   intranet:               # fake internal web portal
