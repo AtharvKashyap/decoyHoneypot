@@ -44,10 +44,20 @@ def ingest_event(event: Event, conn: sqlite3.Connection | None = None,
         classification, severity = classify(event, company)
         event.classification = classification
         event.severity = severity
-        return insert_event(conn, event)
+        rid = insert_event(conn, event)
     finally:
         if own_conn:
             conn.close()
+
+    # Best-effort outbound alerting AFTER the event is classified + stored.
+    # Imported lazily so an unconfigured/absent notifier can never break ingest.
+    try:
+        from hub.notify import notify
+        notify(event)
+    except Exception:
+        pass
+
+    return rid
 
 
 def event_from_dict(payload: dict[str, Any]) -> Event:

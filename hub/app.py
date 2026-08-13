@@ -19,16 +19,24 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from core.schema import ALERT, BENIGN, Event, query_events
+from hub.correlation import build_kill_chains
 from hub.ingest import event_from_dict, get_conn, get_company, ingest_event
 
 app = FastAPI(title="AI Deception Grid - Hub")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# A 1x1 transparent GIF returned by the canary HTTP callback so the fetching
+# app (a document viewer opening an exfiltrated decoy) gets a valid image.
+_PIXEL_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01"
+    b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+)
 
 
 @app.post("/events")
@@ -66,6 +74,34 @@ async def post_canary(request: Request) -> JSONResponse:
     finally:
         conn.close()
     return JSONResponse({"id": rid})
+
+
+@app.get("/canary/{token:path}")
+async def canary_callback(token: str, request: Request) -> Response:
+    """Real file-based canary HTTP callback: fires when an exfiltrated decoy
+    document is opened in an app that fetches a remote resource. Records a
+    CRITICAL canarytoken alert and returns a 1x1 transparent GIF."""
+    src_ip = request.client.host if request.client else ""
+    user_agent = request.headers.get("user-agent", "")
+    event = Event(
+        source="canarytoken",
+        service="http",
+        action="token_trigger",
+        src_ip=src_ip,
+        dst_host="canary-callback",
+        detail={
+            "token_id": token,
+            "user_agent": user_agent,
+            "note": "canary document opened off-network",
+        },
+        raw=str(request.url),
+    )
+    conn = get_conn()
+    try:
+        ingest_event(event, conn=conn, company=get_company())
+    finally:
+        conn.close()
+    return Response(content=_PIXEL_GIF, media_type="image/gif")
 
 
 def _parse_ts(ts: str) -> Optional[datetime]:
@@ -134,6 +170,16 @@ def api_events(classification: Optional[str] = None, limit: int = Query(default=
     return JSONResponse([ev.as_dict() for ev in events])
 
 
+@app.get("/api/killchains")
+def api_killchains() -> JSONResponse:
+    conn = get_conn()
+    try:
+        alert_events = query_events(conn, classification=ALERT, limit=10_000_000)
+    finally:
+        conn.close()
+    return JSONResponse(build_kill_chains(alert_events))
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
     conn = get_conn()
@@ -141,9 +187,12 @@ def dashboard(request: Request) -> HTMLResponse:
         stats = compute_stats(conn)
         recent_events = query_events(conn, limit=50)
         alert_events = query_events(conn, classification=ALERT, limit=100)
+        all_alerts = query_events(conn, classification=ALERT, limit=10_000_000)
         cowrie_events = [ev for ev in query_events(conn, limit=10_000_000) if ev.source == "cowrie"]
     finally:
         conn.close()
+
+    kill_chains = build_kill_chains(all_alerts)
 
     sessions: dict[str, list[Event]] = defaultdict(list)
     for ev in cowrie_events:
@@ -159,5 +208,6 @@ def dashboard(request: Request) -> HTMLResponse:
             "recent_events": recent_events,
             "alert_events": alert_events,
             "sessions": dict(sessions),
+            "kill_chains": kill_chains,
         },
     )

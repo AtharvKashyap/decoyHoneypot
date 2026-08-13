@@ -78,6 +78,20 @@
   .session li { margin-bottom: 2px; }
   .empty { color: var(--muted); font-size: 0.85rem; font-style: italic; }
   code { color: var(--info); }
+  .chain { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .chain:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .chain-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .chain-head .ip { font-weight: 600; color: var(--alert); font-size: 0.95rem; }
+  .chain-head .dwell { color: var(--muted); font-size: 0.78rem; }
+  .chain ol { margin: 4px 0 0 20px; padding: 0; }
+  .chain li { margin-bottom: 5px; font-size: 0.82rem; }
+  .chain .tactic { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.68rem;
+                   font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+                   background: rgba(88,166,255,0.15); color: var(--info); margin-right: 6px; }
+  .chain .tech { color: var(--muted); }
+  .chain .act { color: var(--text); }
+  .chain .det { color: var(--muted); font-size: 0.78rem; }
+  .chain .step-ts { color: var(--muted); font-size: 0.75rem; }
 </style>
 </head>
 <body>
@@ -148,6 +162,35 @@
     </table>
     {% else %}
     <div class="empty">No alerts yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Kill Chains</h2>
+    {% if kill_chains %}
+      {% for chain in kill_chains %}
+      <div class="chain">
+        <div class="chain-head">
+          <span class="ip">{{ chain.src_ip }}</span>
+          <span class="dwell">dwell {{ "%.0f"|format(chain.dwell_seconds) }}s &middot;
+            {{ chain.steps|length }} step{{ "s" if chain.steps|length != 1 else "" }} &middot;
+            {{ chain.first_seen }} &rarr; {{ chain.last_seen }}</span>
+        </div>
+        <ol>
+          {% for step in chain.steps %}
+          <li>
+            <span class="tactic">{{ step.tactic }}</span>
+            <span class="tech">{{ step.technique }}</span>
+            &middot; <span class="act">{{ step.source }}/{{ step.action }}</span>
+            <span class="step-ts">[{{ step.ts }}]</span>
+            {% if step.detail_summary %}<span class="det">&mdash; {{ step.detail_summary }}</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty">No attacker kill chains yet.</div>
     {% endif %}
   </div>
 
