@@ -4,6 +4,7 @@
 PY ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
+PORT ?= 8000
 
 help:
 	@echo "Targets:"
@@ -11,7 +12,9 @@ help:
 	@echo "  test        run pytest"
 	@echo "  generate    build config/company.yaml + seed docs (AI or offline fallback)"
 	@echo "  demo        offline end-to-end: generate -> personas -> attacker -> detect (no Docker)"
-	@echo "  dash        run the hub dashboard locally on :8000"
+	@echo "  dash        run the hub dashboard locally (offline data) on :\$$(PORT) [default 8000]"
+	@echo "              NOTE: if 'make lab' is running, the dashboard is ALREADY at :8000 —"
+	@echo "              just open it; or use 'make dash PORT=8001' for the offline dataset"
 	@echo "  lab         docker compose up the full deception lab"
 	@echo "  attack      build + run the live red-team attacker against the lab"
 	@echo "  lab-down    tear the lab down"
@@ -35,7 +38,7 @@ demo:
 	$(BIN)/python scripts/run_demo.py
 
 dash:
-	$(BIN)/uvicorn hub.app:app --host 0.0.0.0 --port 8000
+	$(BIN)/uvicorn hub.app:app --host 0.0.0.0 --port $(PORT)
 
 lab:
 	docker compose up --build -d
