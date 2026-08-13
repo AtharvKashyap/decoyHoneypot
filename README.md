@@ -112,6 +112,47 @@ red-team run.*
 - CI (`.github/workflows/ci.yml`) additionally spins up the honeypot + hub in
   Docker, runs the live attacker, and asserts the alert reaches the hub.
 
+## Testing & demo playbook
+
+**Fast path — no Docker, no API key:**
+
+```bash
+make install && make test     # 67 unit tests
+make demo                     # generate → 9-5 personas → attacker → detect → kill chain
+make dash                     # dashboard at http://localhost:8000
+```
+
+**Full live lab, then drive a real attacker:**
+
+```bash
+make generate                 # AI/offline fake org + seeded canaried docs
+make lab                      # 11 containers (honeypots, decoys, hub, personas, tarpit)
+make attack                   # real nmap/ssh/smbclient kill-chain on the sealed network
+open http://localhost:8000    # watch benign baseline vs. alerts light up
+```
+
+**Exercise each capability directly:**
+
+```bash
+# Kill-chain correlation (MITRE ATT&CK):
+curl -s localhost:8000/api/killchains | python3 -m json.tool
+
+# Canary HTTP callback — open a beacon (fires a CRITICAL trip):
+TOKEN=$(grep -o 'canary/[0-9a-f-]*' seed/generated/it/passwords.xlsx.beacon.html | cut -d/ -f2)
+curl -s "localhost:8000/canary/$TOKEN" -o /dev/null -w '%{http_code}\n'
+
+# SOC alerting — point at any webhook and trigger an alert:
+ALERT_WEBHOOK=https://hooks.slack.com/services/XXX docker compose up -d hub
+
+# Identity mapping — authenticated employee is benign, anonymous guest alerts:
+docker run --rm --network decoyhoneypot_deception --entrypoint smbclient deception-attacker \
+  //fileserver/company -U employee%labpass -c 'get "it/passwords.xlsx" /dev/null'   # skipped
+docker run --rm --network decoyhoneypot_deception --entrypoint smbclient deception-attacker \
+  //fileserver/company -N -c 'get "it/passwords.xlsx" /dev/null'                    # ALERT
+
+make lab-down                 # tear it all down
+```
+
 ## Containment
 
 - The `deception` Docker network is `internal: true` — **no egress**. Decoys and
