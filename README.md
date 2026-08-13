@@ -1,6 +1,6 @@
 # AI Deception Grid
 
-[![CI](https://github.com/OWNER/decoyHoneypot/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/AtharvKashyap/decoyHoneypot/actions/workflows/ci.yml/badge.svg)](https://github.com/AtharvKashyap/decoyHoneypot/actions/workflows/ci.yml)
 
 An **AI-driven deception lab**: a network of believable decoys and honeypots that
 waste attackers' time, detect intrusions with near-zero false positives, and — the
@@ -9,6 +9,12 @@ editing, and sharing files, browsing the intranet, and sending mail.
 
 > **Authorized/defensive use only.** This is a research and blue-team lab meant to
 > run on your own isolated network. See [Containment](#containment).
+
+![Hub dashboard — benign persona baseline vs. attacker alerts](docs/img/dashboard.jpg)
+
+*The live hub dashboard: a clean benign baseline (182 events) with 32 attacker
+alerts across the SSH honeypot, multi-service tripwire, SMB exfil, canary trips,
+and the AI tarpit — and the attacker's measured time-wasted.*
 
 ## Why it's different
 
@@ -72,6 +78,12 @@ forwarders relay every interaction to the hub, where it lands as alerts against
 the persona baseline. `personas` (auto-started by `make lab`) supplies the
 benign 9–5 traffic, so the dashboard shows the same benign-vs-alert split as the
 offline demo — but from live containers.
+
+![Attacker session replay](docs/img/attacker-sessions.jpg)
+
+*Session replay: the hub reconstructs each intruder's Cowrie session by source IP,
+showing the exact commands they ran in the fake shell — real capture from the live
+red-team run.*
 
 ## Runs anywhere
 
