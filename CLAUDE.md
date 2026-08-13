@@ -66,7 +66,10 @@ make lab-config# validate compose file
 
 ## Layout
 
-`core/` shared contract · `generator/` AI decoy generation · `personas/` behavior
-engine · `hub/` ingest+detection+dashboard · `traps/` honeypot configs + log
-forwarders (cowrie/opencanary/samba `full_audit` → hub) · `engagement/` AI tarpit
-service · `scripts/` demo + live attacker · `docs/superpowers/specs/` design doc.
+`core/` shared contract · `generator/` AI decoy generation (+ canary beacon HTML)
+· `personas/` behavior engine (live traffic as `employee`) · `hub/`
+ingest+detection+dashboard, plus `correlation.py` (kill chains + ATT&CK) and
+`notify.py` (webhook/syslog alerting), `GET /canary/{token}` callback · `traps/`
+honeypot configs + log forwarders (cowrie/opencanary/samba `full_audit` → hub) ·
+`engagement/` AI tarpit service · `scripts/` demo + live attacker ·
+`docs/superpowers/specs/` design doc.

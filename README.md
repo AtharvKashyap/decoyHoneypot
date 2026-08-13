@@ -50,6 +50,22 @@ forward every hit; the Samba fileserver audits file reads so **exfiltration and
 canary-token trips appear on the dashboard in real time**; and the AI tarpit logs
 each time it lures an intruder deeper.
 
+### Detection & response features
+
+- **Kill-chain correlation** — the hub groups each attacker's activity into an
+  ordered story tagged with **MITRE ATT&CK** tactics/techniques (recon → discovery
+  → collection → exfil → access → execution). See the dashboard panel or
+  `GET /api/killchains`.
+- **Real canary callbacks** — canaried documents embed a tracking URL and ship a
+  companion `*.beacon.html`; opening it hits `GET /canary/<token>` on the hub and
+  fires a **critical** alert — the classic canary-token mechanism (works even when
+  the file is opened off-network).
+- **SOC alerting** — high/critical alerts are pushed to a webhook (`ALERT_WEBHOOK`,
+  Slack-aware) and/or syslog (`ALERT_SYSLOG`); unset by default (no-op).
+- **Live persona traffic** — personas generate real SMB/HTTP/SMTP/SSH traffic and
+  authenticate to the fileserver as a shared `employee` account, so the audit
+  forwarder cleanly separates them from the anonymous attacker (no double-counting).
+
 ## Quick start (no Docker, no API key needed)
 
 ```bash

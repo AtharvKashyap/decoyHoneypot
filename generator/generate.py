@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 import uuid
@@ -33,6 +34,12 @@ from generator.offline import OfflineContentSource
 
 DEFAULT_CONFIG_PATH = "config/company.yaml"
 DEFAULT_SEED_DIR = "seed/generated"
+
+# Base URL of the hub's canary callback. When a canaried document (or its
+# companion beacon) is opened in an app that fetches remote resources, it calls
+# GET {CALLBACK_BASE}/canary/<token> and the hub records a CRITICAL trip — the
+# classic canarytoken mechanism. Override for a real off-network deployment.
+CALLBACK_BASE = os.environ.get("CANARY_CALLBACK_BASE", "http://localhost:8000").rstrip("/")
 MANIFEST_NAME = "canary_manifest.json"
 
 HEADER = (
@@ -70,11 +77,35 @@ def canary_token(seed: int, path: str) -> str:
     return f"{T.CANARY_PREFIX}{token}"
 
 
+def _token_id(token: str) -> str:
+    """The bare token id (uuid) for use in a callback URL path."""
+    return token.split(":", 1)[-1]
+
+
+def _callback_url(token: str) -> str:
+    return f"{CALLBACK_BASE}/canary/{_token_id(token)}"
+
+
 def _embed_canary(body: str, token: str, doc_type: str) -> str:
-    """Append the canary marker as an innocuous-looking document-control line."""
+    """Append the canary marker + callback URL as a document-control line."""
     prefix = "# " if doc_type in ("csv", "spreadsheet") else ""
-    line = f"{prefix}document tracking ref: {token} (document control - do not remove)"
+    line = (f"{prefix}document tracking ref: {token} "
+            f"(verify at {_callback_url(token)} - document control, do not remove)")
     return body.rstrip("\n") + "\n\n" + line + "\n"
+
+
+def _beacon_html(token: str, doc_path: str) -> str:
+    """A companion HTML 'beacon': opening it in a browser fires the real canary
+    callback via a tracking pixel. Mirrors how a booby-trapped Office doc phones
+    home when opened off-network."""
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{doc_path}</title></head><body>"
+        f"<!-- canary {token} -->"
+        f"<img src='{_callback_url(token)}' width='1' height='1' alt=''>"
+        f"<p>Meridian Logistics &mdash; protected document preview.</p>"
+        "</body></html>\n"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -116,12 +147,16 @@ def write_output(
 
     for doc in spec["documents"]:
         body = source.document_body(doc, spec).rstrip("\n") + "\n"
+        out = seed_dir / doc["path"]
+        out.parent.mkdir(parents=True, exist_ok=True)
         if doc.get("canary"):
             token = canary_token(seed, doc["path"])
             body = _embed_canary(body, token, doc.get("doc_type", "note"))
             result.canaries[token] = doc["path"]
-        out = seed_dir / doc["path"]
-        out.parent.mkdir(parents=True, exist_ok=True)
+            # Companion beacon: opening it in a browser fires the hub callback.
+            beacon = out.with_name(out.name + ".beacon.html")
+            beacon.write_text(_beacon_html(token, doc["path"]), encoding="utf-8")
+            result.documents.append(beacon)
         out.write_text(body, encoding="utf-8")
         result.documents.append(out)
 

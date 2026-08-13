@@ -96,6 +96,16 @@ def main() -> int:
     print(f"    attacker IPs  : {', '.join(attacker_ips) or '(none)'}")
     print(f"    alert sources : {', '.join(sorted({e.source for e in alerts}))}")
 
+    # Kill-chain correlation: reconstruct the attacker's story with ATT&CK tags.
+    from hub.correlation import build_kill_chains
+    chains = build_kill_chains(alerts)
+    for chain in chains:
+        print(f"    kill chain {chain['src_ip']} — {len(chain['steps'])} steps, "
+              f"dwell {chain['dwell_seconds']:.0f}s:")
+        for i, step in enumerate(chain["steps"][:8], 1):
+            print(f"       {i}. {step['source']}/{step['action']:<13} "
+                  f"[{step['tactic']}: {step['technique']}]")
+
     misclassified = [e for e in benign if e.source != "persona"]
     assert not misclassified, f"benign set contains non-persona events: {misclassified}"
     assert alerts, "expected attacker activity to raise alerts"
