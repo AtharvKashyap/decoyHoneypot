@@ -25,6 +25,10 @@ from forwarder import post_event  # noqa: E402  (shared stdlib-only helper)
 
 AUDIT_LOG = os.environ.get("AUDIT_LOG", "/var/log/samba/audit/audit.log")
 CANARY_MANIFEST = os.environ.get("CANARY_MANIFEST", "/seed/canary_manifest.json")
+# Personas authenticate as this Samba user; their reads are already emitted as
+# benign events by the engine, so the forwarder skips them and reports only the
+# anonymous attacker (guest/nobody) — no double counting.
+PERSONA_SMB_USER = os.environ.get("PERSONA_SMB_USER", "employee")
 
 
 def utcnow_iso() -> str:
@@ -133,6 +137,10 @@ def main() -> None:
     for line in tail_lines(AUDIT_LOG):
         parsed = parse_audit_line(line)
         if not parsed:
+            continue
+        # Authenticated persona ("employee") reads are already logged benign by
+        # the engine — skip them so only the anonymous attacker is forwarded.
+        if parsed.get("user") == PERSONA_SMB_USER:
             continue
         key = (parsed["ip"], parsed["path"])
         if key in seen:

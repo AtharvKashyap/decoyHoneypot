@@ -26,6 +26,9 @@ services:
       dockerfile: hub/Dockerfile
     environment:
       EVENTS_DB: /data/events.db
+      # Optional SOC alerting for high/critical alerts (no-op if unset):
+      ALERT_WEBHOOK: ${ALERT_WEBHOOK:-}   # generic or Slack (hooks.slack.com) URL
+      ALERT_SYSLOG: ${ALERT_SYSLOG:-}     # host:port (UDP) or "local"
     volumes:
       - events:/data
       - ./config:/app/config:ro
@@ -41,10 +44,15 @@ services:
     environment:
       HUB_URL: http://hub:8000
       TIME_SCALE: ${TIME_SCALE:-288}
-      # Emit benign events directly (with correct persona home IPs) rather than
-      # generating real SMB/HTTP traffic, so any REAL file open on the share is
-      # unambiguously the attacker (see traps/fileserver/samba_forward.py).
-      PERSONA_LIVE: "0"
+      # Personas emit their benign events directly (with correct home IPs) AND
+      # generate real network traffic. They authenticate to SMB as the shared
+      # "employee" account; the fileserver forwarder skips that user (already
+      # logged) and reports only the anonymous attacker — so real traffic is
+      # realistic without being double-counted or misclassified.
+      PERSONA_LIVE: "1"
+      SMB_USER: employee
+      SMB_PASS: labpass
+      SMB_SHARE: company
     volumes:
       - ./config:/app/config:ro
     networks: [deception]
@@ -67,6 +75,7 @@ services:
       HUB_URL: http://hub:8000
       AUDIT_LOG: /var/log/samba/audit/audit.log
       CANARY_MANIFEST: /seed/canary_manifest.json
+      PERSONA_SMB_USER: employee   # skip authenticated persona reads; forward only the attacker
     volumes:
       - fileserver_logs:/var/log/samba/audit:ro
       - ./seed/generated:/seed:ro

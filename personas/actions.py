@@ -170,14 +170,20 @@ def _io_smb(event: Event) -> None:
     import subprocess
 
     host = event.dst_host
-    share = event.detail.get("share", "share")
-    # Path relative to the share root, as smbclient expects it.
-    path = event.detail.get("path", "").split(f"/{share}/", 1)[-1]
-    cmd = {"open_file": f'get "{path}" /dev/null', "edit_file": f'get "{path}" /dev/null'}.get(
+    # The lab fileserver exposes a single "company" share rooted at /share;
+    # persona files (e.g. "finance/Q3_forecast.xlsx") are paths within it.
+    share = os.environ.get("SMB_SHARE", "company")
+    rel = event.detail.get("file", "")
+    # Authenticate as the shared employee account when configured, so the
+    # fileserver audit log attributes the read to a known user (not guest) and
+    # the forwarder can tell personas apart from the anonymous attacker.
+    user = os.environ.get("SMB_USER")
+    auth = ["-U", f"{user}%{os.environ.get('SMB_PASS', '')}"] if user else ["-N"]
+    cmd = {"open_file": f'get "{rel}" /dev/null', "edit_file": f'get "{rel}" /dev/null'}.get(
         event.detail.get("activity", ""), "ls"
     )
     subprocess.run(
-        ["smbclient", f"//{host}/{share}", "-N", "-c", cmd],
+        ["smbclient", f"//{host}/{share}", *auth, "-c", cmd],
         capture_output=True, timeout=10, check=False,
     )
 
