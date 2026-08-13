@@ -100,7 +100,7 @@ services:
       dockerfile: engagement/Dockerfile
     environment:
       HUB_URL: http://hub:8000
-      TARPIT_DELAY_MS: "1500"   # deliberately slow responses (capped) to waste time
+      TARPIT_DELAY_MS: "3000"   # deliberately slow responses (capped) to waste attacker time
     networks: [deception]
     depends_on: [hub]
 

@@ -29,6 +29,7 @@ _MAP: dict[tuple[str, str], tuple[str, str]] = {
     ("samba", "open_file"): ("Collection", "T1039 Data from Network Shared Drive"),
     ("samba", "download"): ("Collection", "T1039 Data from Network Shared Drive"),
     ("canarytoken", "token_trigger"): ("Exfiltration", "T1048 Exfiltration / canary tripped"),
+    ("cowrie", "connect"): ("Initial Access", "T1133 External Remote Services"),
     ("cowrie", "login"): ("Initial Access", "T1078 Valid Accounts"),
     ("cowrie", "command"): ("Execution", "T1059 Command & Scripting Interpreter"),
     ("intranet", "browse"): ("Discovery", "T1083 File & Directory Discovery (lured)"),
@@ -37,6 +38,8 @@ _MAP: dict[tuple[str, str], tuple[str, str]] = {
 _SOURCE_DEFAULTS: dict[str, tuple[str, str]] = {
     "canarytoken": ("Exfiltration", "T1048 Exfiltration / canary tripped"),
     "opencanary": ("Reconnaissance", "T1595 Active Scanning"),
+    "cowrie": ("Initial Access", "T1133 External Remote Services"),
+    "samba": ("Collection", "T1039 Data from Network Shared Drive"),
 }
 
 _FALLBACK: tuple[str, str] = ("Unknown", "-")
